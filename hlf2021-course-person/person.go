@@ -20,8 +20,8 @@ type Person struct {
 
 var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface) peer.Response{
 	"addPerson": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
-		if len(args) != 1 {
-			return shim.Error("invalid add person chaincode invocation")
+		if len(args) < 2 {
+			return shim.Error("Unsufficient amount of arguments.")
 		}
 
 		person := &Person{}
@@ -35,7 +35,7 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 		}
 
 		if pp != nil {
-			return shim.Error(fmt.Sprintf("persion with id %s already exists", person.PassportID))
+			return shim.Error(fmt.Sprintf("Person with id %s already exists.", person.PassportID))
 		}
 
 		if err := stub.PutState(person.PassportID, []byte(args[0])); err != nil {
@@ -45,13 +45,103 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 		return shim.Success(nil)
 	},
 	"getPerson": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
+		if len(args) < 2 {
+			return shim.Error("Unsufficient amount of arguments.")
+		}
+
+		passportId := args[0]
+		pp, err := stub.GetState(passportId)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		if pp == nil {
+			return shim.Error(fmt.Sprintf("Person with passport id %s doesnt exist.", passportId))
+		}
+
+		return shim.Success(pp)
+	},
+	"updatePerson": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
+		if len(args) < 2 {
+			return shim.Error("Unsufficient amount of arguments.")
+		}
+
+		person := &Person{}
+		if err := json.Unmarshal([]byte(args[0]), person); err != nil {
+			return shim.Error(err.Error())
+		}
+
+		pp, err := stub.GetState(person.PassportID)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		if pp == nil {
+			return shim.Error(fmt.Sprintf("Person with id %s doesnt exist.", person.PassportID))
+		}
+
+		if err := stub.PutState(person.PassportID, []byte(args[0])); err != nil {
+			return shim.Error(err.Error())
+		}
+
 		return shim.Success(nil)
 	},
 	"deletePerson": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
+		if len(args) < 2 {
+			return shim.Error("Unsufficient amount of arguments.")
+		}
+
+		passportId := args[0]
+		pp, err := stub.GetState(passportId)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		if pp == nil {
+			return shim.Error(fmt.Sprintf("Person with passport id %s doesnt exist.", passportId))
+		}
+
+		err = stub.DelState(passportId)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
 		return shim.Success(nil)
 	},
 	"personHistory": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
-		return shim.Success(nil)
+		if len(args) < 2 {
+			return shim.Error("Unsufficient amount of arguments.")
+		}
+
+		passportId := args[0]
+		pp, err := stub.GetState(passportId)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		if pp == nil {
+			return shim.Error(fmt.Sprintf("Person with passport id %s doesnt exist.", passportId))
+		}
+
+		history, err := stub.GetHistoryForKey(passportId)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		records := []string{}
+		i := 1
+		for history.HasNext(){
+			record, _ := history.Next()
+			var buf = fmt.Sprintf("%d record : %s %s", i, record.GetTxId(), record.GetValue())
+			records = append(records, buf)
+			i++
+		}
+
+		var payload string
+		for _, v := range records {
+			payload = payload + v
+		}
+		return shim.Success([]byte(payload))
 	},
 }
 
