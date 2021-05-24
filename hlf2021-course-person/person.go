@@ -45,14 +45,61 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 		return shim.Success(nil)
 	},
 	"getPerson": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
+		if len(args) != 1 {
+			return shim.Error(fmt.Sprintf("wrong number of arguments"))
+		}
+
+		state, err := stub.GetState(args[0])
+		if err != nil {
+			return shim.Error(fmt.Sprintf("failed to read person information, id %s, due to %s", args[0], err))
+		}
+
+		if state == nil {
+			return shim.Error(fmt.Sprintf("person with id %s doesn't exists", args[0]))
+		}
+		return shim.Success(state)
+	},
+
+	"updatePerson": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
+		if len(args) != 1 {
+			return shim.Error(fmt.Sprintf("wrong number of arguments"))
+		}
+
+		person := &Person{}
+		if err := json.Unmarshal([]byte(args[0], person); err != nil {
+			return shim.Error(err.Error())
+		}
+
+		pp, err := stub.GetState(person.PassportID)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		if pp == nil {
+			return shim.Error(fmt.Sprintf("person with is %s doesn't exist, nothing to update", person.PassportID))
+		}
+
+		if err := stub.PutState(person.PassportID, []byte(args[0])); err != nil {
+			return shim.Error(err.Error())
+		}
+
 		return shim.Success(nil)
 	},
+	
 	"deletePerson": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
+		if len(args) != 1 {
+			return shim.Error(fmt.Sprintf("wrong number of arguments"))
+		}
+
+		err := stub.DelState(args[0])
+		if err != nil {
+			return shim.Error(fmt.Sprintf("failed to delete person information, id %s, due to %s", args[0], err))
+		}
 		return shim.Success(nil)
 	},
-	"personHistory": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
-		return shim.Success(nil)
-	},
+	//"personHistory": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
+	//	return shim.Success(nil)
+	//},
 }
 
 func (p *PersonCC) Init(stub shim.ChaincodeStubInterface) peer.Response {
