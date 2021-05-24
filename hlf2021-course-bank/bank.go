@@ -5,22 +5,24 @@ import (
 	"fmt"
 	"github.com/hyperledger/fabric-chaincode-go/shim"
 	"github.com/hyperledger/fabric-protos-go/peer"
+	"strconv"
 )
 
 type BankCC struct {
 }
 
 type Account struct {
-	Number string `json:"number"`
-	BankName    string `json:"bank_name"`
+	Number   string `json:"number"`
+	BankName string `json:"bank_name"`
 	INN      string `json:"inn"`
 	PersonId string `json:"person_id"`
-	CardId string `json:"card_id"`
+	CardId   string `json:"card_id"`
+	Balance  string `json:"balance"`
 }
 
 type Card struct {
 	Number string `json:"number"`
-	Type    string `json:"type"`
+	Type   string `json:"type"`
 	Active string `json:"active"`
 }
 
@@ -54,7 +56,7 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 			return shim.Error("PersonCC response error.")
 		}
 
-		if response.Payload == nil{
+		if response.Payload == nil {
 			return shim.Error("Person doesnt exist. Impossible to create bank account.")
 		}
 
@@ -116,7 +118,7 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 			return shim.Error("PersonCC response error.")
 		}
 
-		if response.Payload == nil{
+		if response.Payload == nil {
 			return shim.Error("Person doesnt exist. Impossible to update bank account.")
 		}
 
@@ -180,7 +182,7 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 
 		records := []string{}
 		i := 1
-		for history.HasNext(){
+		for history.HasNext() {
 			record, _ := history.Next()
 			var buf = fmt.Sprintf("%d record : %s %s", i, record.GetTxId(), record.GetValue())
 			records = append(records, buf)
@@ -238,7 +240,7 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 		}
 
 		card := &Card{}
-		if err := json.Unmarshal([]byte(args[0]), card, ); err != nil {
+		if err := json.Unmarshal([]byte(args[0]), card); err != nil {
 			return shim.Error(err.Error())
 		}
 
@@ -279,7 +281,7 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 
 		records := []string{}
 		i := 1
-		for history.HasNext(){
+		for history.HasNext() {
 			record, _ := history.Next()
 			var buf = fmt.Sprintf("%d record : %s %s", i, record.GetTxId(), record.GetValue())
 			records = append(records, buf)
@@ -291,6 +293,42 @@ var functions = map[string]func(args []string, stub shim.ChaincodeStubInterface)
 			payload = payload + v
 		}
 		return shim.Success([]byte(payload))
+	},
+	"changeBalance": func(args []string, stub shim.ChaincodeStubInterface) peer.Response {
+		if len(args) < 2 {
+			return shim.Error("Unsufficient amount of arguments.")
+		}
+
+		number := args[0]
+		delta, err := strconv.Atoi(args[1])
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		pp, err := stub.GetState(number)
+		if err != nil {
+			return shim.Error(err.Error())
+		}
+
+		if pp == nil {
+			return shim.Error(fmt.Sprintf("Account with number %s doesnt exist.", number))
+		}
+
+		account := &Account{}
+		if err := json.Unmarshal(pp, account); err != nil {
+			return shim.Error(err.Error())
+		}
+
+		balance, err := strconv.Atoi(account.Balance)
+
+		if balance+delta < 0 {
+			return shim.Error("Incorrect operation. Balance + delta < 0")
+		}
+
+		balance += delta
+		account.Balance = strconv.Itoa(balance)
+
+		return shim.Success(nil)
 	},
 }
 
